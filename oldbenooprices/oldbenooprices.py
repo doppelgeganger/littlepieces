@@ -11,9 +11,8 @@ import MySQLdb
 #constants
 TITLE = 'В память старого "Бену"'
 CONFIG_PATH = p.join(p.realpath(p.dirname(__file__)), "config")
-ACTIVE = 1 << 0
-AVAILABLE = 1 << 1
-DEFAULT_VIEW = ACTIVE & AVAILABLE
+_ACTIVE = True
+_AVAILABLE = True
 
 _id = lambda x: x
 
@@ -50,6 +49,9 @@ class Connection(object):
                 #TODO: log
                 raise Exception()
 
+    def _get_constraints(self):
+        return "WHERE " + ("s.status=1" if _ACTIVE else "1") + \
+            " AND " + ("ss.ship_req_pref='USUAL'" if _AVAILABLE else "1")
 
     def get_table_data(self, opts):
         #TODO: options and buttons
@@ -57,7 +59,8 @@ class Connection(object):
         cur.execute(
             "SELECT s.id, s.title, ss.packsize, s.preis, s.status, " +
             "ss.ship_req_pref FROM second_osbenu_shop AS s LEFT JOIN " +
-            "second_osbenu_shop_supplemental AS ss ON s.id=ss.id WHERE 1"
+            "second_osbenu_shop_supplemental AS ss ON s.id=ss.id " +
+            self._get_constraints()
         )
         return cur.fetchall()
 
@@ -73,8 +76,6 @@ class Connection(object):
             self.conn.commit()
             return True
         except Exception as e:
-            print 'WUT'
-            print e
             #TODO: log message
             self.conn.rollback()
 
@@ -228,18 +229,53 @@ class GUI(gtk.Window):
 
     def __init__(self):
         super(GUI, self).__init__(gtk.WINDOW_TOPLEVEL)
+        self.t = None
         self.connect("destroy", lambda _: gtk.main_quit() or sys.exit())
         self.resize(800,600)
         self.set_title(TITLE)
+        ##
+        self._inner = gtk.VBox()
+        self._inner.set_homogeneous(False)
+        self.add(self._inner)
+        self._inner.show()
+        ##
+        self._draw_menu()
         self._draw_table()
         self.show()
 
+    def _draw_menu(self):
+        bar = gtk.MenuBar()
+        status = gtk.Menu()
+        status_cont = gtk.MenuItem("Показывать")
+        active = gtk.CheckMenuItem("Активные")
+        active.set_active(_ACTIVE)
+        available = gtk.CheckMenuItem("Доступные")
+        available.set_active(_AVAILABLE)
+        self._inner.pack_start(bar,False, False, 0) ##
+        bar.append(status_cont)
+        status_cont.set_submenu(status)
+        status.append(active)
+        status.append(available)
+        active.connect("toggled", self._redraw, 1)
+        available.connect("toggled", self._redraw, 2)
+        for i in [active, available, status, status_cont, bar]:
+            i.show()
+
+    def _redraw(self, widget, data):
+        global _AVAILABLE, _ACTIVE
+        if data == 1: _ACTIVE = widget.get_active()
+        if data == 2: _AVAILABLE = widget.get_active()
+        self._draw_table()
 
     def _draw_status_pane(self):
         pass
 
     def _draw_table(self):
-        self.add(Table())
+        if self.t is not None:
+            self.t.destroy()
+        self.t = Table()
+        self._inner.pack_start(self.t) ##
+
 #main loop
 def main():
     gui = GUI()
