@@ -84,14 +84,14 @@ class Connection(object):
 conn = Connection()
 
 
-class Table(gtk.Table):
+class Table(gtk.VBox):
     _COLS = (
         ('ID', 0, 1),
-        ('Наименование', 1, 3),
-        ('Упаковка', 3, 5),
-        ('Цена', 5, 6),
-        ('Активен', 6, 7),
-        ('Доступен', 7, 8)
+        ('Наименование', 1, 6),
+        ('Упаковка', 6, 7),
+        ('Цена', 7, 8),
+        ('Активен', 8, 9),
+        ('Доступен', 9, 10)
     )
 
     _COLS_TO_LEGACY = (
@@ -101,6 +101,7 @@ class Table(gtk.Table):
         _id, _id, _id, _id, int, lambda v: v == "USUAL"
     )
 
+
     class Record(gtk.Table):
         #if update ok -> change values
 
@@ -108,15 +109,16 @@ class Table(gtk.Table):
         _CLR_FAIL = '#BF8080'
         _AFFECTED_FLDS = (3,4,5)
 
-        def __init__(self, data):
+        def __init__(self, data, sgs):
             self.data = list(data)
             self.entries = []
-            super(Table.Record, self).__init__(1 , 8, True)
+            super(Table.Record, self).__init__(1 , 6, False)
             for i in range(len(data)):
                 e = gtk.Entry()
                 e.set_text(str(data[i]))
                 e.set_editable(False)
                 e.connect("button_press_event", self.entry_menu, data[0])
+                sgs[i].add_widget(e)
                 e.show()
                 self.entries.append(e)
                 self.attach(e, Table._COLS[i][1], Table._COLS[i][2], 0, 1)
@@ -171,13 +173,13 @@ class Table(gtk.Table):
                         self.data[0],
                         form_data.values()
                     )
-                #TODO: log
-                if update_ok:
-                    for idx, val in form_data.items():
-                        self.data[idx] = val
-                        self.entries[idx].set_text(str(val))
+                    #TODO: log
+                    if update_ok:
+                        for idx, val in form_data.items():
+                            self.data[idx] = val
+                            self.entries[idx].set_text(str(val))
 
-                self._colorify_me(self._CLR_OK if update_ok else self._CLR_FAIL)
+                    self._colorify_me(self._CLR_OK if update_ok else self._CLR_FAIL)
 
             widget.destroy()
 
@@ -192,27 +194,33 @@ class Table(gtk.Table):
     def __init__(self):
         #fetch_data
         #scrollable
-        super(Table, self).__init__(11, 10, True)
-        for col in self._COLS:
+        super(Table, self).__init__()
+        self.set_homogeneous(False)
+        t = gtk.Table(1, 6, False)
+        self._sgs = tuple(gtk.SizeGroup(gtk.SIZE_GROUP_HORIZONTAL) for _ in range(len(Table._COLS)))
+        for idx ,col in enumerate(self._COLS):
             lbl = gtk.Label(col[0])
-            self.attach(lbl, col[1]+1, col[2]+1, 0, 1, xoptions=gtk.EXPAND)
+            t.attach(lbl, col[1], col[2], 0, 1)
+            self._sgs[idx].add_widget(lbl)
             lbl.show()
+        t.show()
+        self.pack_start(t, False, False)
         #populate and redraw data (keyed by id)
         #redraw === redraw all table
         self.vwp = gtk.ScrolledWindow()
         self.vwp.show()
         self.vwp.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
-        self.attach(self.vwp, 1, 16, 1, 11)
+        self.pack_start(self.vwp)
         self.render_data()
         self.show()
 
     #record pool
     def render_data(self):
         data = conn.get_table_data(None) #TODO: options
-        table = gtk.Table(len(data), 1, True)
+        table = gtk.Table(len(data), 1, False)
         self.vwp.add_with_viewport(table)
         for i, r in enumerate(data):
-            table.attach(Table.Record(r), 0, 1, i, i+1)
+            table.attach(Table.Record(r, self._sgs), 0, 1, i, i+1)
         table.show()
 
 
