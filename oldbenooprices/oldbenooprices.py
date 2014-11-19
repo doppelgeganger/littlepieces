@@ -65,14 +65,16 @@ class Connection(object):
         #TODO: log operations
         cur = self.conn.cursor()
         wcl = "WHERE id=%d" % record_id
-        q1 = "UPDATE second_osbenu_shop SET preis=%s status=%s %s" % (data[0], data[1], wcl)
-        q2 = "UPDATE second_osbenu_shop_supplemental SET ship_req_pref=%s %s" % (data[2], wcl)
+        q1 = "UPDATE second_osbenu_shop SET preis=%s, status=%s %s" % (data[0], data[1], wcl)
+        q2 = "UPDATE second_osbenu_shop_supplemental SET ship_req_pref='%s' %s" % (data[2], wcl)
         try:
             cur.execute(q1)
             cur.execute(q2)
             self.conn.commit()
             return True
         except Exception as e:
+            print 'WUT'
+            print e
             #TODO: log message
             self.conn.rollback()
 
@@ -102,12 +104,12 @@ class Table(gtk.Table):
     class Record(gtk.Table):
         #if update ok -> change values
 
-        _CLR_OK = 0
-        _CLR_FAIL = 0
+        _CLR_OK = '#B8FF70'
+        _CLR_FAIL = '#BF8080'
         _AFFECTED_FLDS = (3,4,5)
 
         def __init__(self, data):
-            self.data = data
+            self.data = list(data)
             self.entries = []
             super(Table.Record, self).__init__(1 , 8, True)
             for i in range(len(data)):
@@ -170,19 +172,21 @@ class Table(gtk.Table):
                         form_data.values()
                     )
                 #TODO: log
-                print need_update, update_ok
-                print self.entries
                 if update_ok:
                     for idx, val in form_data.items():
-                        self.data[x] = val
-                        self.entries[x].set_text(str(val))
+                        self.data[idx] = val
+                        self.entries[idx].set_text(str(val))
 
-            self._colorify_me(self._CLR_OK if update_ok else self._CLR_FAIL)
+                self._colorify_me(self._CLR_OK if update_ok else self._CLR_FAIL)
 
             widget.destroy()
 
         def _colorify_me(self, color):
-            pass
+            color = gtk.gdk.color_parse(color)
+            for e in self.entries:
+                e.modify_bg(gtk.STATE_NORMAL, color)
+                e.modify_fg(gtk.STATE_NORMAL, color)
+                e.modify_base(gtk.STATE_NORMAL, color)
 
 
     def __init__(self):
